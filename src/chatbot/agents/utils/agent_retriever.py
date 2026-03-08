@@ -118,7 +118,7 @@ def _get_relevant_documents(
         except Exception as e:
             return NOT_FOUND_MESSAGE, ref
     elif VECTOR_DB_TYPE == VectorDBTypes.INFINITY_RAGFLOW:
-
+        query = f"{query}  {filter_program_name if filter_program_name else ''}"
         return retrieve_from_infinity_ragflow(
             CollectionNames.EXAMINATION_REGULATIONS, query
         )

@@ -11,6 +11,7 @@ from src.config.core_config import settings
 
 # TODO delete once metadata is added to RAGFlow API
 FAQ_BASE_URL = "https://uni-osnabrueck.de/"
+NUMBER_CHUNKS_RETRIEVE = 10  # number of chunks to retrieve
 
 
 class RetrievedDocs(BaseModel):
@@ -112,7 +113,7 @@ class RAGFlowSingleton:
         self,
         query: str,
         db_id: str,
-        page_size: int = 10,  # number of chunks to retrieve
+        page_size: int = NUMBER_CHUNKS_RETRIEVE,  # number of chunks to retrieve
     ) -> List[Chunk]:
         """Retrieve chunks from the RAGFlow database based on a query."""
         try:

@@ -1,5 +1,5 @@
 from enum import Enum
-from typing import ClassVar, List, Literal, Optional, Tuple, Type, Union
+from typing import Literal, Optional, Union
 
 from pydantic import BaseModel
 
@@ -32,12 +32,14 @@ class SearchConfig(BaseModel):
 
 class ModelConfig(BaseModel):
     """
-    Configuration for the model being used.
+    Configuration for the model being used. Eval Pipeline specific.
     """
 
     model_name: str
-    context_window: int  # Number of allowed tokens
+    is_model_local: bool
     optional_model_name: str
+    is_optional_model_local: bool
+    context_window: int  # Number of allowed tokens
 
 
 class Legal(BaseModel):

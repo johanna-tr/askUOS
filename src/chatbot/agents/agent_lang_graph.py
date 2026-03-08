@@ -4,6 +4,7 @@ from collections import deque
 from typing import Annotated, ClassVar, Dict, List, Literal, Optional, Union
 
 from langchain.tools.retriever import create_retriever_tool
+from langchain_core.exceptions import OutputParserException
 from langchain_core.messages import (
     AIMessage,
     BaseMessage,
@@ -17,10 +18,15 @@ from langchain_core.prompts import PromptTemplate
 from langchain_core.tools import BaseTool
 from langchain_openai import ChatOpenAI
 from langgraph.graph import END, START, StateGraph
-from pydantic import BaseModel, Field, PrivateAttr
+from pydantic import BaseModel, Field, PrivateAttr, ValidationError
 from typing_extensions import TypedDict
 
-from src.chatbot.agents.utils.agent_helpers import llm, llm_optional
+from eval_pipeline.eval_helpers import trace_method
+from src.chatbot.agents.utils.agent_helpers import (
+    fallback_without_str_output,
+    llm,
+    llm_optional,
+)
 from src.chatbot.agents.utils.agent_retriever import (
     _get_relevant_documents,
     retrieve_from_infinity_ragflow,
@@ -155,18 +161,33 @@ class GraphEdgesMixin:
             #     description="From the retrieved documents, which paragraphs are relevant to answer the user query? Extract all relevant paragraphs from the retrieved documents."
             # )
 
-        llm_with_str_output = self._llm_optional.with_structured_output(GradeResult)
-        prompt = PromptTemplate(
-            template=translate_prompt()["grading_llm"],
-            input_variables=["context", "question"],
-        )
-        chain = prompt | llm_with_str_output
-        scored_result = chain.invoke(
-            {
-                "question": f'{state["user_initial_query"]}, {tool_query}',
-                "context": tool_messages,
-            }
-        )
+        try:
+            llm_with_str_output = self._llm_optional.with_structured_output(GradeResult)
+            prompt = PromptTemplate(
+                template=translate_prompt()["grading_llm"],
+                input_variables=["context", "question"],
+            )
+            chain = prompt | llm_with_str_output
+            scored_result = chain.invoke(
+                {
+                    "question": f'{state["user_initial_query"]}, {tool_query}',
+                    "context": tool_messages,
+                }
+            )
+        except (ValidationError, OutputParserException, ValueError) as e:
+            logger.warning(
+                f"[GRADE_DOCUMENTS] Structured output failed, using fallback: {e}"
+            )
+            scored_result_raw = fallback_without_str_output(
+                self._llm_optional,
+                prompt,
+                {
+                    "question": f'{state["user_initial_query"]}, {tool_query}',
+                    "context": tool_messages,
+                },
+                required_field="binary_score",
+            )
+            scored_result = GradeResult(**scored_result_raw)
 
         try:
             # score = scored_result.binary_score.lower()
@@ -343,11 +364,29 @@ class GraphNodesMixin:
             """,
             input_variables=["context", "question"],
         )
-
-        chain = prompt | llm_with_str_output
-        score = chain.invoke(
-            {"question": state["user_initial_query"], "context": state["messages"][-1]}
-        )
+        try:
+            chain = prompt | llm_with_str_output
+            score = chain.invoke(
+                {
+                    "question": state["user_initial_query"],
+                    "context": state["messages"][-1],
+                }
+            )
+            logger.info(f"SUCCESSFULL INVOKATION WITHOUT EXCEPTION")
+        except (ValidationError, OutputParserException, ValueError) as e:
+            logger.warning(
+                f"[JUDGE_NODE] Structured output failed, using fallback: {e}"
+            )
+            score_raw = fallback_without_str_output(
+                self._llm,
+                prompt,
+                {
+                    "question": state["user_initial_query"],
+                    "context": state["messages"][-1],
+                },
+                required_field="judgement_binary",
+            )
+            score = JudgementResult(**score_raw)
 
         if score.judgement_binary.lower() == "no":
             msg = [HumanMessage(content=translate_prompt()["use_tool_msg"])]
@@ -361,6 +400,7 @@ class GraphNodesMixin:
 
         return {"score_judgement_binary": score.judgement_binary}
 
+    @trace_method("tool_node", trace_type="outputs")
     def tool_node(self, state: Dict) -> Dict:
         """Process tool calls."""
 

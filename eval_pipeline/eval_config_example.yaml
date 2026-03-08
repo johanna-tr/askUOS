@@ -1,0 +1,122 @@
+# For every evaluation pipeline run configure:
+  # 1. run_name
+  # 2. baseline_model configuration
+  # 3. all local_model configurations for evaluation (list can be empty)
+  # 4. active_metrics in this run (list can be empty)
+
+run_name: "evaluation" # output folder name
+output_dir: "eval_pipeline/runs/" 
+input_dir: "eval_pipeline/data/questions.csv"
+recursion_limit: 8
+
+# --- Baseline model configuration for comparison and ground truth values ---
+# model_name: main model for reasoning; optional_model_name: secondary model for auxiliary tasks
+# make sure to match the flags for is_local/is_not_local with the selected model names
+baseline_model:
+  model_name: "your-model-name"
+  is_model_local: False
+  optional_model_name: "your-model-name"
+  is_optional_model_local: False
+  context_window: 50000 #128000 # in tokens (for pricing reasons you may want to keep this low and not higher than openai max tokens)
+
+# --- List of local model configurations for evaluation ---
+# model_name: main model for reasoning; optional_model_name: secondary model for auxiliary tasks
+# make sure to match the flags for is_local/is_not_local with the selected model names
+local_models:
+  - model_name: "your-model-name"
+    is_model_local: True
+    optional_model_name: "your-model-name"
+    is_optional_model_local: True
+    context_window: 50000 #128000 # in tokens (for pricing reasons you may want to keep this low and not higher than openai max tokens)
+  
+  - model_name: "your-model-name"
+    is_model_local: True
+    optional_model_name: "your-model-name"
+    is_optional_model_local: True
+    context_window: 50000 #128000 # in tokens (for pricing reasons you may want to keep this low and not higher than openai max tokens)
+
+evaluator_llm: "your-model-name" # model used for LLM-based ragas metrics
+
+active_metrics: # all active metrics in this list are being evaluated 
+  - "Topic Adherence"
+  - "Tool Call Accuracy"
+  - "Tool Call F1"
+  - "Faithfulness"
+
+topic_adherence_modes:  # all active modes in this list are being evaluated for topic adherence 
+  - precision
+  - recall
+  - f1
+
+reference_topics: # for topic adherence 
+    - "University support"
+    - "Course information"
+    - "Student life"
+    - "Accommodation"
+    - "Application process"
+
+# --- for running ragas evaluation separately without tracing (main_ragas.py) ---
+eval_trace_path: "your-path" # the trace to be evaluated (write without .csv)
+baseline_trace_path: "your-path" # provides reference tool calls for tool call metrics (write without .csv)
+skip_baseline_scoring: True # False: Topic Adherence and Faithfulness will be scored for baseline
+
+
+# ------- from here identical with global config --------
+legal:
+  data_protection: "https://my_example.de/datenschutz/"
+  imprint: "https://my_example.de/impressum/"
+
+application:
+  debug: True
+  tracing: False # used by opik
+  # If you want to use the tracing feature, you need to set up a tracing provider (Opik)
+  opik_project_name: "askUOSTesting"
+  recursion_limit: 8 # default is 12 https://langchain-ai.github.io/langgraph/how-tos/recursion-limit/
+
+embedding:
+  # Text embedding configuration
+  type: "Ollama"
+  connection_settings: {
+    model_name: "nomic-embed-text",
+    base_url : "https://my-ollama-instance.de",
+    headers: {
+      "Authorization": "API-KEY"
+    }
+  }
+  chunk_size: 3500 # Make sure this is not higher than the context window of the model
+  chunk_overlap: 50
+
+ragflow_settings:
+  # RAGFlow settings
+  base_url: "https://ragflow-instance.de"  # Base URL for RAGFlow API
+  chunk_size: 10  # Number of chunks to retrieve per request
+
+milvus_settings:
+  # Milvus vector database configuration
+  uri: "http://standalone:19530" # Useful for Docker or Kubernetes deployments. User docker compose service name (Usually "milvus" or "standalone")
+  token: "root:Milvus"  # Optional authentication token
+
+
+# embedding:
+#   # Text embedding configuration
+#   type: "FastEmbed"
+#   connection_settings: {
+#     model_name: "intfloat/multilingual-e5-large",
+ 
+#   }
+
+# Optional. If set up, implement e.g., cron job to run /app/src/chatbot_log/log_cleanup.py  
+log_settings:
+  delete_logs_days: 90 # Number of days to keep logs before deletion
+
+start_page:
+  welcome_message_english: "Welcome to our chatbot! How can I assist you today?"
+  welcome_message_german: "Willkommen bei unserem Chatbot! Wie kann ich Ihnen heute helfen?"
+
+chat_page:
+    # Configuration for the start page
+  delete_message_dialog_box_english: |
+    Are you sure you want to delete the chat history? This action cannot be undone.
+  delete_message_dialog_box_german: |
+    Sind Sie sicher, dass Sie den Chatverlauf löschen möchten? Diese Aktion kann nicht rückgängig gemacht werden.
+
