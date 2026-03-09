@@ -25,7 +25,7 @@ def plot_recursion_errors(csv_file_path_base, csv_file_path_eval):
     de_error_en_error_b = df_base[(df_base['de_error']) & (df_base['en_error'])].shape[0]
     en_error_de_error_b = de_error_en_error_b  # Symmetric
     
-    # Run B: Define the variables for the error cases 
+    # Run E: Define the variables for the error cases 
     total_de_error_e = df_eval['de_error'].sum() # total number of errors
     total_en_error_e = df_eval['en_error'].sum() # total number of errors
     de_error_en_ok_e = df_eval[(df_eval['de_error']) & (~df_eval['en_error'])].shape[0]
